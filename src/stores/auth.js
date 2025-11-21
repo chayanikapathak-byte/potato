@@ -2,23 +2,27 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import axios from "axios";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = "/api";
 
 export const useAuthStore = defineStore("auth", () => {
-  const token = ref(localStorage.getItem("token") || null);
-  const user = ref(null);
+  const user = ref(JSON.parse(localStorage.getItem("user") || "null"));
   const loading = ref(false);
   const error = ref(null);
 
-  const isAuthenticated = computed(() => !!token.value);
+  const isAuthenticated = computed(() => !!user.value);
 
   const api = axios.create({
     baseURL: API_URL,
   });
 
   api.interceptors.request.use((config) => {
-    if (token.value) {
-      config.headers.Authorization = `Bearer ${token.value}`;
+    if (user.value?.id) {
+      config.params = config.params || {};
+      config.params.userId = user.value.id;
+      if (config.method !== 'get') {
+        config.data = config.data || {};
+        config.data.userId = user.value.id;
+      }
     }
     return config;
   });
@@ -33,9 +37,8 @@ export const useAuthStore = defineStore("auth", () => {
         password,
       });
 
-      token.value = response.data.token;
       user.value = response.data.user;
-      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
 
       return true;
     } catch (err) {
@@ -56,9 +59,8 @@ export const useAuthStore = defineStore("auth", () => {
         password,
       });
 
-      token.value = response.data.token;
       user.value = response.data.user;
-      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
 
       return true;
     } catch (err) {
@@ -70,29 +72,28 @@ export const useAuthStore = defineStore("auth", () => {
   };
 
   const logout = () => {
-    token.value = null;
     user.value = null;
-    localStorage.removeItem("token");
+    localStorage.removeItem("user");
   };
 
   const fetchUser = async () => {
-    if (!token.value) return;
+    if (!user.value?.id) return;
 
     try {
-      const response = await api.get("/auth/me");
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        params: { userId: user.value.id }
+      });
       user.value = response.data;
+      localStorage.setItem("user", JSON.stringify(response.data));
     } catch (err) {
       console.error("Failed to fetch user:", err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        logout();
-      }
+      logout();
     }
   };
 
   const getApiInstance = () => api;
 
   return {
-    token,
     user,
     loading,
     error,

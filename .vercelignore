@@ -1,0 +1,10 @@
+node_modules
+.git
+*.db
+*.sqlite
+*.sqlite3
+server/gametracker.db
+.env.local
+.vscode
+.idea
+*.log
