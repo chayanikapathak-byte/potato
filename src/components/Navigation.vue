@@ -38,6 +38,24 @@
             <MoonIcon v-else class="w-5 h-5 text-gray-600" />
           </button>
 
+          <!-- User Menu (Desktop) -->
+          <div v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-2">
+            <router-link
+              to="/profile"
+              class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors"
+              title="Profile"
+            >
+              <UserCircleIcon class="w-5 h-5 text-gray-600 dark:text-dark-600" />
+            </router-link>
+            <button
+              @click="handleLogout"
+              class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors"
+              title="Logout"
+            >
+              <ArrowRightOnRectangleIcon class="w-5 h-5 text-gray-600 dark:text-dark-600" />
+            </button>
+          </div>
+
           <!-- Mobile Menu Button -->
           <button
             @click="mobileMenuOpen = !mobileMenuOpen"
@@ -63,6 +81,25 @@
             <component :is="item.icon" class="w-5 h-5" />
             <span>{{ item.name }}</span>
           </router-link>
+          
+          <div v-if="authStore.isAuthenticated" class="pt-2 mt-2 border-t border-gray-200 dark:border-dark-300">
+            <router-link
+              to="/profile"
+              class="mobile-nav-link"
+              :class="{ 'mobile-nav-link-active': $route.name === 'Profile' }"
+              @click="mobileMenuOpen = false"
+            >
+              <UserCircleIcon class="w-5 h-5" />
+              <span>Profile</span>
+            </router-link>
+            <button
+              @click="handleLogout"
+              class="mobile-nav-link w-full text-left"
+            >
+              <ArrowRightOnRectangleIcon class="w-5 h-5" />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -71,7 +108,9 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { useAuthStore } from '@/stores/auth'
 import {
   HomeIcon,
   BookOpenIcon,
@@ -79,10 +118,14 @@ import {
   MoonIcon,
   SunIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  UserCircleIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/vue/24/outline'
 
+const router = useRouter()
 const themeStore = useThemeStore()
+const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 
 const navigation = [
@@ -90,6 +133,12 @@ const navigation = [
   { name: 'Library', to: '/library', icon: BookOpenIcon },
   { name: 'Stats', to: '/stats', icon: ChartBarIcon },
 ]
+
+const handleLogout = () => {
+  authStore.logout()
+  mobileMenuOpen.value = false
+  router.push('/login')
+}
 </script>
 
 <style scoped>

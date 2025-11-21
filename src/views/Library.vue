@@ -81,13 +81,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useGameStore } from '@/stores/games'
+import { useAuthStore } from '@/stores/auth'
 import GameCard from '@/components/GameCard.vue'
 import AddGameModal from '@/components/AddGameModal.vue'
 import { MagnifyingGlassIcon, ComputerDesktopIcon } from '@heroicons/vue/24/outline'
 
 const gameStore = useGameStore()
+const authStore = useAuthStore()
 const searchQuery = ref('')
 const statusFilter = ref('all')
 const showAddGameModal = ref(false)
@@ -106,10 +108,19 @@ const deleteGame = (id) => {
   }
 }
 
-const handleAddGame = (gameData) => {
-  gameStore.addGame(gameData)
-  showAddGameModal.value = false
+const handleAddGame = async (gameData) => {
+  try {
+    await gameStore.addGame(gameData)
+    showAddGameModal.value = false
+  } catch (error) {
+    console.error('Failed to add game:', error)
+  }
 }
+
+onMounted(async () => {
+  await authStore.fetchUser()
+  await gameStore.fetchGames()
+})
 
 // Watch for route changes to reset filters
 watch(() => statusFilter.value, () => {

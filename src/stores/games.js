@@ -1,54 +1,11 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { useAuthStore } from "./auth";
 
 export const useGameStore = defineStore("games", () => {
-  const games = ref([
-    {
-      id: 1,
-      title: "The Legend of Zelda: Tears of the Kingdom",
-      platform: "Nintendo Switch",
-      status: "playing",
-      progress: 65,
-      rating: null,
-      coverImage:
-        "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=400&fit=crop",
-      genres: ["Adventure", "Open World"],
-      playtime: 45,
-      startedDate: "2023-05-12",
-      completedDate: null,
-      notes: "Amazing exploration and puzzles!",
-    },
-    {
-      id: 2,
-      title: "Elden Ring",
-      platform: "PlayStation 5",
-      status: "completed",
-      progress: 100,
-      rating: 5,
-      coverImage:
-        "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=300&h=400&fit=crop",
-      genres: ["RPG", "Action"],
-      playtime: 120,
-      startedDate: "2023-02-25",
-      completedDate: "2023-04-10",
-      notes: "Challenging but rewarding experience.",
-    },
-    {
-      id: 3,
-      title: "Baldur's Gate 3",
-      platform: "PC",
-      status: "backlog",
-      progress: 0,
-      rating: null,
-      coverImage:
-        "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=300&h=400&fit=crop",
-      genres: ["RPG", "Strategy"],
-      playtime: 0,
-      startedDate: null,
-      completedDate: null,
-      notes: "Waiting for the right time to dive in.",
-    },
-  ]);
+  const games = ref([]);
+  const loading = ref(false);
+  const error = ref(null);
 
   const filteredGames = computed(() => {
     return (statusFilter = "all", searchQuery = "") => {
@@ -58,9 +15,10 @@ export const useGameStore = defineStore("games", () => {
         const matchesSearch =
           game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           game.platform.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          game.genres.some((genre) =>
-            genre.toLowerCase().includes(searchQuery.toLowerCase()),
-          );
+          (game.genres &&
+            game.genres.some((genre) =>
+              genre.toLowerCase().includes(searchQuery.toLowerCase()),
+            ));
         return matchesStatus && matchesSearch;
       });
     };
@@ -74,14 +32,15 @@ export const useGameStore = defineStore("games", () => {
     const playing = games.value.filter((g) => g.status === "playing").length;
     const backlog = games.value.filter((g) => g.status === "backlog").length;
     const totalPlaytime = games.value.reduce(
-      (sum, game) => sum + game.playtime,
+      (sum, game) => sum + (game.playtime || 0),
       0,
     );
     const avgRating =
       games.value
-        .filter((g) => g.rating !== null)
+        .filter((g) => g.rating !== null && g.rating !== undefined)
         .reduce((sum, game) => sum + game.rating, 0) /
-        games.value.filter((g) => g.rating !== null).length || 0;
+        games.value.filter((g) => g.rating !== null && g.rating !== undefined)
+          .length || 0;
 
     return {
       total,
@@ -94,50 +53,123 @@ export const useGameStore = defineStore("games", () => {
     };
   });
 
-  const addGame = (game) => {
-    const newGame = {
-      ...game,
-      id: Date.now(),
-      progress: 0,
-      playtime: 0,
-      rating: null,
-      startedDate:
-        game.status === "playing"
-          ? new Date().toISOString().split("T")[0]
-          : null,
-      completedDate: null,
-    };
-    games.value.push(newGame);
-  };
+  const fetchGames = async () => {
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) return;
 
-  const updateGame = (id, updates) => {
-    const index = games.value.findIndex((g) => g.id === id);
-    if (index !== -1) {
-      games.value[index] = { ...games.value[index], ...updates };
+    try {
+      loading.value = true;
+      error.value = null;
 
-      if (
-        updates.progress === 100 &&
-        games.value[index].status !== "completed"
-      ) {
-        games.value[index].status = "completed";
-        games.value[index].completedDate = new Date()
-          .toISOString()
-          .split("T")[0];
-      }
+      const api = authStore.getApiInstance();
+      const response = await api.get("/games");
+      games.value = response.data;
+    } catch (err) {
+      error.value = err.response?.data?.error || "Failed to fetch games";
+      console.error("Fetch games error:", err);
+    } finally {
+      loading.value = false;
     }
   };
 
-  const deleteGame = (id) => {
-    const index = games.value.findIndex((g) => g.id === id);
-    if (index !== -1) {
-      games.value.splice(index, 1);
+  const addGame = async (game) => {
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) return;
+
+    try {
+      loading.value = true;
+      error.value = null;
+
+      const gameData = {
+        ...game,
+        progress: game.progress || 0,
+        playtime: game.playtime || 0,
+        rating: game.rating || null,
+        started_date:
+          game.status === "playing" && !game.started_date
+            ? new Date().toISOString().split("T")[0]
+            : game.started_date || null,
+        completed_date: game.completed_date || null,
+      };
+
+      const api = authStore.getApiInstance();
+      const response = await api.post("/games", gameData);
+      games.value.push(response.data);
+      return response.data;
+    } catch (err) {
+      error.value = err.response?.data?.error || "Failed to add game";
+      console.error("Add game error:", err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const updateGame = async (id, updates) => {
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) return;
+
+    try {
+      loading.value = true;
+      error.value = null;
+
+      const index = games.value.findIndex((g) => g.id === id);
+      if (index === -1) return;
+
+      const currentGame = games.value[index];
+      const updatedData = { ...currentGame, ...updates };
+
+      if (
+        updates.progress === 100 &&
+        updatedData.status !== "completed"
+      ) {
+        updatedData.status = "completed";
+        updatedData.completed_date = new Date().toISOString().split("T")[0];
+      }
+
+      const api = authStore.getApiInstance();
+      const response = await api.put(`/games/${id}`, updatedData);
+      games.value[index] = response.data;
+    } catch (err) {
+      error.value = err.response?.data?.error || "Failed to update game";
+      console.error("Update game error:", err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const deleteGame = async (id) => {
+    const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) return;
+
+    try {
+      loading.value = true;
+      error.value = null;
+
+      const api = authStore.getApiInstance();
+      await api.delete(`/games/${id}`);
+
+      const index = games.value.findIndex((g) => g.id === id);
+      if (index !== -1) {
+        games.value.splice(index, 1);
+      }
+    } catch (err) {
+      error.value = err.response?.data?.error || "Failed to delete game";
+      console.error("Delete game error:", err);
+      throw err;
+    } finally {
+      loading.value = false;
     }
   };
 
   return {
     games,
+    loading,
+    error,
     filteredGames,
     stats,
+    fetchGames,
     addGame,
     updateGame,
     deleteGame,

@@ -87,12 +87,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '@/stores/games'
+import { useAuthStore } from '@/stores/auth'
 import GameCard from '@/components/GameCard.vue'
 import AddGameModal from '@/components/AddGameModal.vue'
 
 const gameStore = useGameStore()
+const authStore = useAuthStore()
 const showAddGameModal = ref(false)
 
 const stats = computed(() => gameStore.stats)
@@ -117,9 +119,13 @@ const deleteGame = (id) => {
   gameStore.deleteGame(id)
 }
 
-const handleAddGame = (gameData) => {
-  gameStore.addGame(gameData)
-  showAddGameModal.value = false
+const handleAddGame = async (gameData) => {
+  try {
+    await gameStore.addGame(gameData)
+    showAddGameModal.value = false
+  } catch (error) {
+    console.error('Failed to add game:', error)
+  }
 }
 
 const getStatusText = (status) => {
@@ -140,4 +146,9 @@ const formatDate = (dateString) => {
     year: 'numeric' 
   })
 }
+
+onMounted(async () => {
+  await authStore.fetchUser()
+  await gameStore.fetchGames()
+})
 </script>
