@@ -14,6 +14,25 @@
 
       <!-- Form -->
       <form @submit.prevent="handleSubmit" class="p-6 space-y-4">
+        <!-- Steam Search Button -->
+        <button
+          type="button"
+          @click="showSteamSearch = true"
+          class="w-full btn btn-secondary flex items-center justify-center gap-2"
+        >
+          <MagnifyingGlassIcon class="w-5 h-5" />
+          Search Steam Games
+        </button>
+
+        <div class="relative">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-300 dark:border-dark-300"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-2 bg-white dark:bg-dark-100 text-gray-500 dark:text-dark-500">Or add manually</span>
+          </div>
+        </div>
+
         <!-- Title -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-dark-700 mb-2">
@@ -142,14 +161,23 @@
         </div>
       </form>
     </div>
+
+    <SteamSearchModal
+      v-if="showSteamSearch"
+      @close="showSteamSearch = false"
+      @add="handleSteamAdd"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import SteamSearchModal from './SteamSearchModal.vue'
 
 const emit = defineEmits(['close', 'add'])
+
+const showSteamSearch = ref(false)
 
 const form = reactive({
   title: '',
@@ -182,7 +210,10 @@ const handleSubmit = () => {
     form.coverImage = `https://picsum.photos/seed/${randomSeed}/300/400.jpg`
   }
 
-  emit('add', { ...form })
+  emit('add', { 
+    ...form,
+    cover_image: form.coverImage
+  })
   
   // Reset form
   Object.assign(form, {
@@ -193,5 +224,11 @@ const handleSubmit = () => {
     coverImage: '',
     notes: ''
   })
+}
+
+const handleSteamAdd = (gameData) => {
+  showSteamSearch.value = false
+  emit('add', gameData)
+  emit('close')
 }
 </script>

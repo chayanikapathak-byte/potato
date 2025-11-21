@@ -3,7 +3,7 @@
     <!-- Game Cover -->
     <div class="relative aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-dark-200">
       <img
-        :src="game.coverImage"
+        :src="game.cover_image || game.coverImage"
         :alt="game.title"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         loading="lazy"

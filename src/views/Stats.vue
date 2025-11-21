@@ -121,11 +121,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useGameStore } from '@/stores/games'
+import { useAuthStore } from '@/stores/auth'
 import { StarIcon } from '@heroicons/vue/24/outline'
 
 const gameStore = useGameStore()
+const authStore = useAuthStore()
 const stats = computed(() => gameStore.stats)
 
 const statusBreakdown = computed(() => {
@@ -186,4 +188,9 @@ const formatDate = (dateString) => {
     year: 'numeric' 
   })
 }
+
+onMounted(async () => {
+  await authStore.fetchUser()
+  await gameStore.fetchGames()
+})
 </script>
